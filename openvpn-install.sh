@@ -168,4 +168,59 @@ select_ip6() {
         echo "$ip6_number: invalid selection."
         read -p "IPv6 address [1]: " ip6_number
     done
-    ip6=$(ip -6 addr | grep 'inet6 [23]' | cut -d '/' -f 1 | grep -oE '([0-9a-fA-F]{0,4}:){1,7}[0-9a-fA-F]{0,4}' | sed -n "$ip6_number
+    ip6=$(ip -6 addr | grep 'inet6 [23]' | cut -d '/' -f 1 | grep -oE '([0-9a-fA-F]{0,4}:){1,7}[0-9a-fA-F]{0,4}' | sed -n "$ip6_number"p)
+    echo "$ip6"
+}
+
+# Install necessary packages for OpenVPN
+install_dependencies() {
+    if [[ "$os" = "debian" || "$os" = "ubuntu" ]]; then
+        apt-get update
+        apt-get install -y --no-install-recommends openvpn openssl ca-certificates iptables
+    else
+        dnf install -y openvpn openssl ca-certificates iptables
+    fi
+}
+
+# Configure OpenVPN settings
+configure_openvpn() {
+    local ip=$1 ip6=$2
+    echo "local $ip
+port 1194
+proto udp
+dev tun
+ca ca.crt
+cert server.crt
+key server.key
+dh dh.pem
+auth SHA512
+tls-crypt tc.key
+topology subnet
+server 10.8.0.0 255.255.255.0" > /etc/openvpn/server/server.conf
+    [[ -z "$ip6" ]] && echo 'push "redirect-gateway def1 bypass-dhcp"' >> /etc/openvpn/server/server.conf || {
+        echo 'server-ipv6 fddd:1194:1194:1194::/64' >> /etc/openvpn/server/server.conf
+        echo 'push "redirect-gateway def1 ipv6 bypass-dhcp"' >> /etc/openvpn/server/server.conf
+    }
+}
+
+# Enable IP forwarding
+enable_ip_forwarding() {
+    local ip6=$1
+    echo 'net.ipv4.ip_forward=1' > /etc/sysctl.d/99-openvpn-forward.conf
+    echo 1 > /proc/sys/net/ipv4/ip_forward
+    [[ -n "$ip6" ]] && {
+        echo "net.ipv6.conf.all.forwarding=1" >> /etc/sysctl.d/99-openvpn-forward.conf
+        echo 1 > /proc/sys/net/ipv6/conf/all/forwarding
+    }
+}
+
+# Main execution
+main() {
+    ensure_bash
+    detect_os
+    validate_os_version
+    check_requirements
+    install_openvpn
+}
+
+main "$@"
