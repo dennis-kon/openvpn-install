@@ -1,7 +1,7 @@
 #!/bin/bash
 # https://github.com/Nyr/openvpn-install
 # Copyright (c) 2013 Nyr. Released under the MIT License.
-# reftored by https://github.com/dennis-kon/ 2024
+# refactored by https://github.com/dennis-kon/  
 
 # Ensure the script is executed with bash
 ensure_bash() {
